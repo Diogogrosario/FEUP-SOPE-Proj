@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
                 sprintf(argv[1],"%s/%s",argv[1],d_entry->d_name);
                 printf("Directory!   ");
                 printf("%s\n",argv[1]);
-                execvp("./simpledu",argv);
+                execvp(argv[0],argv);
             }
             else{ //parent
                 wait(&pid);
