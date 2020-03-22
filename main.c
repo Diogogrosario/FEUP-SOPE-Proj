@@ -30,7 +30,7 @@ int roundUp(int size) {
 }
 
 void setFlags(int argc, char* argv[]) {
-    for(int i = 2; i < argc; ++i) {
+    for(int i = 3; i < argc; ++i) {
         if(!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes")) {
             b = 1;
         }
@@ -71,11 +71,15 @@ int main(int argc, char *argv[])
     struct dirent* d_entry; 
     struct stat stat_entry;  
 
-    if(argc<2){
+    if(argc < 3){
         printf("Too few arguments!\n");
         exit(1);
     }
-    else if(argc > 2) {
+    else if(argc > 3) {
+		if (argv[1] != "-l") {
+			printf("Invalid usage!\n");
+			exit(8);
+		}
         setFlags(argc, argv);
         if(b && B)
         {
@@ -84,25 +88,24 @@ int main(int argc, char *argv[])
         }
     }
 
-    if((dir = opendir(argv[1])) == NULL){
-        perror(argv[1]);
+    if((dir = opendir(argv[2])) == NULL){
+        perror(argv[2]);
         exit(2);
     }
     
 
     while((d_entry = readdir(dir)) != NULL){
-        sprintf(name,"%s/%s",argv[1],d_entry->d_name);
+        sprintf(name,"%s/%s",argv[2],d_entry->d_name);
         if(lstat(name,&stat_entry) == -1){  //Getting status
             perror("lstat error");
             exit(3);
         }
-        //stat_entry.st_blksize = DEFLT_BLK_SIZE;
         if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")){ //Found a dir
             pipe(fd);
             if((pid = fork()) == 0){ //Child
                 char *aux[100];
                 for(int i = 0; i < argc; ++i) {
-                    if(i != 1) {
+                    if(i != 2) {
                         aux[i] = argv[i];
                     }
                     else
@@ -137,9 +140,9 @@ int main(int argc, char *argv[])
             exit(3);
     }
     if(b == 1) {
-        printf("%-25s%12d%3d\n", argv[1], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+        printf("%-25s%12d%3d\n", argv[2], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
     }
     else {
-        printf("%-25s%12d%3d\n", argv[1], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+        printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
     }
 }
