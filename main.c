@@ -15,7 +15,7 @@ int b = 0;
 int a = 0;
 int B = 0;
 int S = 0;
-int block_size = 512;
+int block_size = 1024;
 
 int roundUp(int size) {
     if(size == 0)
@@ -31,6 +31,10 @@ int roundUp(int size) {
 
 void setFlags(int argc, char* argv[]) {
     for(int i = 3; i < argc; ++i) {
+        if(strcmp(argv[1],"-l")){
+			printf("Invalid usage!\n");
+			exit(8);
+		}
         if(!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes")) {
             b = 1;
         }
@@ -76,10 +80,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
     else if(argc > 3) {
-		if (argv[1] != "-l") {
-			printf("Invalid usage!\n");
-			exit(8);
-		}
         setFlags(argc, argv);
         if(b && B)
         {
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
                     else
                     {
                         char temp[1000] = "";
-                        sprintf(temp, "%s/%s", argv[1], d_entry->d_name);
+                        sprintf(temp, "%s/%s", argv[i], d_entry->d_name);
                         aux[i] = temp;
                     }
                 }
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
     }
 
     //printing directory
-    if(lstat(argv[1],&stat_entry) == -1){  //Getting status
+    if(lstat(argv[2],&stat_entry) == -1){  //Getting status
             perror("lstat error");
             exit(3);
     }
