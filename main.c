@@ -121,9 +121,16 @@ int main(int argc, char *argv[])
 
     while((d_entry = readdir(dir)) != NULL){
         sprintf(name,"%s/%s",argv[2],d_entry->d_name);
-        if(lstat(name,&stat_entry) == -1){  //Getting status
-            perror("lstat error");
-            exit(3);
+        if(L) {
+            if(stat(name,&stat_entry) == -1){  //Getting status
+                perror("lstat error");
+                exit(3);
+            }
+        } else {
+            if(lstat(name,&stat_entry) == -1){  //Getting status
+                perror("lstat error");
+                exit(3);
+            }
         }
         if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")) { //Found a dir
             pipe(fd);
@@ -151,8 +158,8 @@ int main(int argc, char *argv[])
             }
         }
         else if(S_ISREG(stat_entry.st_mode)) {
-            if(a == 1) {
-                if(b == 1) {
+            if(a) {
+                if(b) {
                     printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
                 }
                 else {
@@ -161,16 +168,13 @@ int main(int argc, char *argv[])
             }
         }
         else if(S_ISLNK(stat_entry.st_mode)) {
-            if(a == 1) {
-                if(b == 1) {
+            if(a) {
+                if(b) {
                     printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
                 }
                 else {
                     printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
                 }
-            }
-            if(L == 1) {
-               // execvp();
             }
         } 
     }
@@ -186,4 +190,5 @@ int main(int argc, char *argv[])
     else {
         printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
     }
+
 }
