@@ -39,11 +39,12 @@ int roundUp(int size) {
 
 void setFlags(int argc, char* argv[]) {
     //printArgs(argc, argv);
+    if(strcmp(argv[1],"-l") && strcmp(argv[1],"--count-links")){
+        printf("Invalid usage!\n");
+        exit(8);
+	}
     for(int i = 3; i < argc; ++i) {
-        if(strcmp(argv[1],"-l")){
-			printf("Invalid usage!\n");
-			exit(8);
-		}
+        
         if(!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes")) {
             b = 1;
         }
@@ -158,22 +159,26 @@ int main(int argc, char *argv[])
             }
         }
         else if(S_ISREG(stat_entry.st_mode)) {
-            if(a) {
-                if(b) {
-                    printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
-                }
-                else {
-                    printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+            if(max_depth != -1) {
+                if(a) {
+                    if(b) {
+                        printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+                    }
+                    else {
+                        printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+                    }
                 }
             }
         }
         else if(S_ISLNK(stat_entry.st_mode)) {
-            if(a) {
-                if(b) {
-                    printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
-                }
-                else {
-                    printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+            if(max_depth != -1) {
+                if(a) {
+                    if(b) {
+                        printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+                    }
+                    else {
+                        printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+                    }
                 }
             }
         } 
