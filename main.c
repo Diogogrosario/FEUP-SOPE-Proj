@@ -78,8 +78,6 @@ void setFlags(int argc, char* argv[]) {
             for(int j = 12; j < strlen(argv[i]); ++j) 
                 depth[j-12] = argv[i][j];
             max_depth = atoi(depth) - 1;
-            if(max_depth == -2) 
-                exit(0);
             depth_index = i;
         }
         else if(!strcmp("-L", argv[i])) {
@@ -159,7 +157,7 @@ int main(int argc, char *argv[])
             }
         }
         else if(S_ISREG(stat_entry.st_mode)) {
-            if(max_depth != -1) {
+            if(max_depth >= 0) {
                 if(a) {
                     if(b) {
                         printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
@@ -171,7 +169,7 @@ int main(int argc, char *argv[])
             }
         }
         else if(S_ISLNK(stat_entry.st_mode)) {
-            if(max_depth != -1) {
+            if(max_depth >= 0) {
                 if(a) {
                     if(b) {
                         printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
@@ -189,11 +187,13 @@ int main(int argc, char *argv[])
             perror("lstat error");
             exit(3);
     }
-    if(b == 1) {
-        printf("%-25s%12d%3d\n", argv[2], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
-    }
-    else {
-        printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+    if(max_depth >= -1) {
+        if(b == 1) {
+            printf("%-25s%12d%3d\n", argv[2], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+        }
+        else {
+            printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+        }
     }
 
 }
