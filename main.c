@@ -16,6 +16,14 @@ int a = 0;
 int B = 0;
 int S = 0;
 int block_size = 1024;
+int max_depth = 0;
+int depth_index = -1;
+int L = 0;
+
+void printArgs(int argc, char*argv[]) {
+    for(int i = 0; i < argc; ++i)
+        printf("i:%d           argv[]:%s\n", i, argv[i]);
+}
 
 int roundUp(int size) {
     if(size == 0)
@@ -30,6 +38,7 @@ int roundUp(int size) {
 }
 
 void setFlags(int argc, char* argv[]) {
+    //printArgs(argc, argv);
     for(int i = 3; i < argc; ++i) {
         if(strcmp(argv[1],"-l")){
 			printf("Invalid usage!\n");
@@ -58,6 +67,22 @@ void setFlags(int argc, char* argv[]) {
         }
         else if(!strcmp("-S", argv[i])) {
             S = 1;
+        }
+        else if(!strncmp("--max_depth=", argv[i], 12)) {
+            if(strlen(argv[i]) == 12) {
+                printf("Invalid depth!\n");
+                exit(9);
+            }
+            char depth[10];
+            for(int j = 12; j < strlen(argv[i]); ++j) 
+                depth[j-12] = argv[i][j];
+            max_depth = atoi(depth) - 1;
+            if(max_depth == -2) 
+                exit(0);
+            depth_index = i;
+        }
+        else if(!strcmp("-L", argv[i])) {
+            L = 1;
         }
         else {
             printf("Merdou as flags feio ein: i:%d   argv[i]:%s\n", i, argv[i]);
@@ -92,7 +117,7 @@ int main(int argc, char *argv[])
         perror(argv[2]);
         exit(2);
     }
-    
+
 
     while((d_entry = readdir(dir)) != NULL){
         sprintf(name,"%s/%s",argv[2],d_entry->d_name);
@@ -100,29 +125,32 @@ int main(int argc, char *argv[])
             perror("lstat error");
             exit(3);
         }
-        if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")){ //Found a dir
+        if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")) { //Found a dir
             pipe(fd);
             if((pid = fork()) == 0){ //Child
-                char *aux[100];
+                char *aux[1000];
                 for(int i = 0; i < argc; ++i) {
-                    if(i != 2) {
+                    
+                    if(i == depth_index) {
+                        char *temp1 = malloc(sizeof(char)*1000);
+                        sprintf(temp1, "--max_depth=%d", max_depth);
+                        aux[i] = temp1;
+                    } else if (i == 2) {
+                        char *temp2 = malloc(sizeof(char)*1000);
+                        sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
+                        aux[i] = temp2;
+                    } else {
                         aux[i] = argv[i];
-                    }
-                    else
-                    {
-                        char temp[1000] = "";
-                        sprintf(temp, "%s/%s", argv[i], d_entry->d_name);
-                        aux[i] = temp;
                     }
                 }
                 execvp(argv[0],aux);
                 exit(10);
             }
-            else{ //parent
+            else { //parent
                 wait(&pid);
             }
         }
-        else if(S_ISREG(stat_entry.st_mode)){
+        else if(S_ISREG(stat_entry.st_mode)) {
             if(a == 1) {
                 if(b == 1) {
                     printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
@@ -132,6 +160,19 @@ int main(int argc, char *argv[])
                 }
             }
         }
+        else if(S_ISLNK(stat_entry.st_mode)) {
+            if(a == 1) {
+                if(b == 1) {
+                    printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+                }
+                else {
+                    printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+                }
+            }
+            if(L == 1) {
+               // execvp();
+            }
+        } 
     }
 
     //printing directory
