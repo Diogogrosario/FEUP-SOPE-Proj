@@ -11,6 +11,8 @@
 #define READ 0
 #define WRITE 1
 
+#define LOG_FILENAME "LOG_FILENAME"
+
 int b = 0;
 int a = 0;
 int B = 0;
@@ -20,9 +22,12 @@ int max_depth = 0;
 int depth_index = -1;
 int L = 0;
 
-void printArgs(int argc, char*argv[]) {
+FILE *file;
+
+void stringArgs(int argc, char*argv[]) {
     for(int i = 0; i < argc; ++i)
-        printf("i:%d           argv[]:%s\n", i, argv[i]);
+        fprintf(file, "%s ", argv[i]);
+    fprintf(file, "\n");
 }
 
 int roundUp(int size) {
@@ -54,12 +59,14 @@ void setFlags(int argc, char* argv[]) {
         else if(!strcmp(argv[i], "-B")) {
             if(i+1 >= argc) {
                 printf("No block size!\n");
+                fprintf(file, "time - %.8d - EXIT - 4\n", getpid());
                 exit(4);
             }
             ++i;
             for(int j = 0; j < strlen(argv[i]); ++j) {
                 if(argv[i][j] > '9' || argv[i][j] < '0') {
                     printf("Invalid block size!\n");
+                    fprintf(file, "time - %.8d - EXIT - 5\n", getpid());
                     exit(5);
                 }
             }
@@ -72,6 +79,7 @@ void setFlags(int argc, char* argv[]) {
         else if(!strncmp("--max_depth=", argv[i], 12)) {
             if(strlen(argv[i]) == 12) {
                 printf("Invalid depth!\n");
+                fprintf(file, "time - %.8d - EXIT - 9\n", getpid());
                 exit(9);
             }
             char depth[10];
@@ -85,6 +93,7 @@ void setFlags(int argc, char* argv[]) {
         }
         else {
             printf("Merdou as flags feio ein: i:%d   argv[i]:%s\n", i, argv[i]);
+            fprintf(file, "time - %.8d - EXIT - 6\n", getpid());
             exit(6);
         }
     }
@@ -101,6 +110,7 @@ int main(int argc, char *argv[])
 
     if(argc < 3){
         printf("Too few arguments!\n");
+        fprintf(file, "time - %.8d - EXIT - 1\n", getpid());
         exit(1);
     }
     else if(argc > 3) {
@@ -108,12 +118,22 @@ int main(int argc, char *argv[])
         if(b && B)
         {
             printf("Incompatible flags!\n");
+            fprintf(file, "time - %.8d - EXIT - 7\n", getpid());
             exit(7);
         }
     }
 
+    if(getenv(LOG_FILENAME) == NULL) {
+        setenv(LOG_FILENAME, "./log.txt", 1);
+        file = fopen(getenv(LOG_FILENAME), "w");
+    }
+    else {
+        file = fopen(getenv(LOG_FILENAME), "a");
+    }
+   
     if((dir = opendir(argv[2])) == NULL){
         perror(argv[2]);
+        fprintf(file, "time - %.8d - EXIT - 2\n", getpid());
         exit(2);
     }
 
@@ -123,17 +143,21 @@ int main(int argc, char *argv[])
         if(L) {
             if(stat(name,&stat_entry) == -1){  //Getting status
                 perror("lstat error");
+                fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
                 exit(3);
             }
         } else {
             if(lstat(name,&stat_entry) == -1){  //Getting status
                 perror("lstat error");
+                fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
                 exit(3);
             }
         }
         if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")) { //Found a dir
             pipe(fd);
+            fclose(file);
             if((pid = fork()) == 0){ //Child
+                file = fopen(getenv(LOG_FILENAME), "a");
                 char *aux[1000];
                 for(int i = 0; i < argc; ++i) {
                     
@@ -149,11 +173,17 @@ int main(int argc, char *argv[])
                         aux[i] = argv[i];
                     }
                 }
+                fprintf(file, "time - %.8d - CREATE - ", getpid());
+                stringArgs(argc, argv);
+                fclose(file);
+
                 execvp(argv[0],aux);
+                fprintf(file, "time - %.8d - EXIT - 10\n", getpid());
                 exit(10);
             }
             else { //parent
                 wait(&pid);
+                file = fopen(getenv(LOG_FILENAME), "a");
             }
         }
         else if(S_ISREG(stat_entry.st_mode)) {
@@ -180,20 +210,26 @@ int main(int argc, char *argv[])
                 }
             }
         } 
+        
     }
 
     //printing directory
     if(lstat(argv[2],&stat_entry) == -1){  //Getting status
             perror("lstat error");
+            fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
             exit(3);
     }
     if(max_depth >= -1) {
         if(b == 1) {
             printf("%-25s%12d%3d\n", argv[2], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+            fprintf(file, "time - %.8d - ENTRY - %d %s\n", getpid(), (int)stat_entry.st_size, argv[2]);
         }
         else {
             printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+            fprintf(file, "time - %.8d - ENTRY - %d %s\n", getpid(), roundUp(stat_entry.st_size), argv[2]);
         }
     }
 
+    fprintf(file, "time - %.8d - EXIT - 0\n", getpid());
+    return 0;
 }
