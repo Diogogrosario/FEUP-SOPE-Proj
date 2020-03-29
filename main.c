@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <dirent.h> 
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <wait.h>
 #include <errno.h>
+#include <time.h>
 #include <string.h>
 
 #define READ 0
@@ -13,6 +14,7 @@
 
 #define LOG_FILENAME "LOG_FILENAME"
 
+int createLog = 0;
 int b = 0;
 int a = 0;
 int B = 0;
@@ -21,79 +23,116 @@ int block_size = 1024;
 int max_depth = 0;
 int depth_index = -1;
 int L = 0;
+clock_t timePassed = 0;
+clock_t timeNow;
 
 FILE *file;
 
-void stringArgs(int argc, char*argv[]) {
-    for(int i = 0; i < argc; ++i)
+typedef struct
+{
+    long int size_total;
+    int blocks;
+    clock_t time;
+} info;
+
+void stringArgs(int argc, char *argv[])
+{
+    for (int i = 0; i < argc; ++i)
         fprintf(file, "%s ", argv[i]);
     fprintf(file, "\n");
 }
 
-int roundUp(int size) {
-    if(size == 0)
+int roundUp(int size)
+{
+    if (size == 0)
         return 0;
-    if(size < block_size)
-        return 1;
+    if (size < block_size)
+        return 4;
     int aux = 0;
-    if(size % block_size != 0) {
+    if (size % block_size != 0)
+    {
         aux = 1;
     }
-    return size/block_size + aux;
+    aux = size / block_size + aux;
+    while(aux%4!=0) aux++;
+    return aux;
+    
 }
 
-void setFlags(int argc, char* argv[]) {
+void setFlags(int argc, char *argv[])
+{
     //printArgs(argc, argv);
-    if(strcmp(argv[1],"-l") && strcmp(argv[1],"--count-links")){
+    if (strcmp(argv[1], "-l") && strcmp(argv[1], "--count-links"))
+    {
         printf("Invalid usage!\n");
         exit(8);
-	}
-    for(int i = 3; i < argc; ++i) {
-        
-        if(!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes")) {
+    }
+    for (int i = 3; i < argc; ++i)
+    {
+
+        if (!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes"))
+        {
             b = 1;
         }
-        else if(!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all")) {
+        else if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all"))
+        {
             a = 1;
         }
-        else if(!strcmp(argv[i], "-B")) {
-            if(i+1 >= argc) {
+        else if (!strcmp(argv[i], "-B"))
+        {
+            if (i + 1 >= argc)
+            {
                 printf("No block size!\n");
-                fprintf(file, "time - %.8d - EXIT - 4\n", getpid());
+                if (createLog)
+                    fprintf(file, "time - %.8d - EXIT - 4\n", getpid());
                 exit(4);
             }
             ++i;
-            for(int j = 0; j < strlen(argv[i]); ++j) {
-                if(argv[i][j] > '9' || argv[i][j] < '0') {
+            for (int j = 0; j < strlen(argv[i]); ++j)
+            {
+                if (argv[i][j] > '9' || argv[i][j] < '0')
+                {
                     printf("Invalid block size!\n");
-                    fprintf(file, "time - %.8d - EXIT - 5\n", getpid());
+                    if (createLog)
+                        fprintf(file, "time - %.8d - EXIT - 5\n", getpid());
                     exit(5);
                 }
             }
             B = 1;
             block_size = atoi(argv[i]);
         }
-        else if(!strcmp("-S", argv[i])) {
+        else if (!strcmp("-S", argv[i]))
+        {
             S = 1;
         }
-        else if(!strncmp("--max_depth=", argv[i], 12)) {
-            if(strlen(argv[i]) == 12) {
+        else if (!strncmp("--max_depth=", argv[i], 12))
+        {
+            if (strlen(argv[i]) == 12)
+            {
                 printf("Invalid depth!\n");
-                fprintf(file, "time - %.8d - EXIT - 9\n", getpid());
+                if (createLog)
+                    fprintf(file, "time - %.8d - EXIT - 9\n", getpid());
                 exit(9);
             }
             char depth[10];
-            for(int j = 12; j < strlen(argv[i]); ++j) 
-                depth[j-12] = argv[i][j];
+            for (int j = 12; j < strlen(argv[i]); ++j)
+                depth[j - 12] = argv[i][j];
             max_depth = atoi(depth) - 1;
             depth_index = i;
         }
-        else if(!strcmp("-L", argv[i])) {
+        else if (!strcmp("-L", argv[i]))
+        {
             L = 1;
         }
-        else {
-            printf("Merdou as flags feio ein: i:%d   argv[i]:%s\n", i, argv[i]);
-            fprintf(file, "time - %.8d - EXIT - 6\n", getpid());
+        else if (!strcmp("-t", argv[i]))
+        {
+            timePassed = atol(argv[i+1]);
+            i++;
+        }
+        else
+        {
+            if (createLog)
+                fprintf(file, "time - %.8d - EXIT - 6\n", getpid());
             exit(6);
         }
     }
@@ -101,135 +140,245 @@ void setFlags(int argc, char* argv[]) {
 
 int main(int argc, char *argv[])
 {
-    DIR* dir;
+    DIR *dir;
     int fd[2];
     pid_t pid;
     char name[FILENAME_MAX];
-    struct dirent* d_entry; 
-    struct stat stat_entry;  
+    struct dirent *d_entry;
+    struct stat stat_entry;
+    int nChilds=0;
+    timeNow = clock();
+    info *myInfo = malloc(sizeof(info));
+    myInfo->size_total = 0;
+    myInfo->time = 0;
+    myInfo->blocks = 0;
 
-    if(argc < 3){
+    
+
+    if (argc < 3)
+    {
         printf("Too few arguments!\n");
-        fprintf(file, "time - %.8d - EXIT - 1\n", getpid());
+        if (createLog)
+            fprintf(file, "time - %.8d - EXIT - 1\n", getpid());
         exit(1);
     }
-    else if(argc > 3) {
+    
+    else if (argc > 3)
+    {
         setFlags(argc, argv);
-        if(b && B)
+        if (b && B)
         {
             printf("Incompatible flags!\n");
-            fprintf(file, "time - %.8d - EXIT - 7\n", getpid());
+            if (createLog)
+                fprintf(file, "time - %.8d - EXIT - 7\n", getpid());
             exit(7);
         }
     }
 
-    if(getenv(LOG_FILENAME) == NULL) {
-        setenv(LOG_FILENAME, "./log.txt", 1);
-        file = fopen(getenv(LOG_FILENAME), "w");
-    }
-    else {
-        file = fopen(getenv(LOG_FILENAME), "a");
-    }
-   
-    if((dir = opendir(argv[2])) == NULL){
+    if (getenv(LOG_FILENAME) != NULL)
+        {
+            if(timePassed)
+            {
+                file = fopen(getenv(LOG_FILENAME), "a");
+            }
+            else
+            {
+                file = fopen(getenv(LOG_FILENAME), "w");
+            }
+            createLog = 1;
+        }
+
+    if ((dir = opendir(argv[2])) == NULL)
+    {
         perror(argv[2]);
-        fprintf(file, "time - %.8d - EXIT - 2\n", getpid());
+        if (createLog)
+            fprintf(file, "time - %.8d - EXIT - 2\n", getpid());
         exit(2);
     }
 
+    pipe(fd);
+    
 
-    while((d_entry = readdir(dir)) != NULL){
-        sprintf(name,"%s/%s",argv[2],d_entry->d_name);
-        if(L) {
-            if(stat(name,&stat_entry) == -1){  //Getting status
+    while ((d_entry = readdir(dir)) != NULL)
+    {
+        
+        sprintf(name, "%s/%s", argv[2], d_entry->d_name);
+        if (L)
+        {
+            if (stat(name, &stat_entry) == -1)
+            { //Getting status
                 perror("lstat error");
-                fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
-                exit(3);
-            }
-        } else {
-            if(lstat(name,&stat_entry) == -1){  //Getting status
-                perror("lstat error");
-                fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
+                if (createLog)
+                    fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
                 exit(3);
             }
         }
-        if(S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, "..")) { //Found a dir
-            pipe(fd);
-            fclose(file);
-            if((pid = fork()) == 0){ //Child
-                file = fopen(getenv(LOG_FILENAME), "a");
+        else
+        {
+            if (lstat(name, &stat_entry) == -1)
+            { //Getting status
+                perror("lstat error");
+                if (createLog)
+                    fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
+                exit(3);
+            }
+        }
+        if (S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, ".."))
+        { //Found a dir
+
+           
+            
+            if ((pid = fork()) == 0)
+            { //Child
+
+                dup2(fd[WRITE], 2);
+                
                 char *aux[1000];
-                for(int i = 0; i < argc; ++i) {
-                    
-                    if(i == depth_index) {
-                        char *temp1 = malloc(sizeof(char)*1000);
+                int i;
+                if(timePassed)
+                {
+                    argc-=2;
+                }
+                for (i = 0; i < argc; ++i)
+                {
+
+                    if (i == depth_index)
+                    {
+                        char *temp1 = malloc(sizeof(char) * 1000);
                         sprintf(temp1, "--max_depth=%d", max_depth);
                         aux[i] = temp1;
-                    } else if (i == 2) {
-                        char *temp2 = malloc(sizeof(char)*1000);
+                    }
+                    else if (i == 2)
+                    {
+                        char *temp2 = malloc(sizeof(char) * 1000);
                         sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
                         aux[i] = temp2;
-                    } else {
+                    }
+                    else
+                    {
                         aux[i] = argv[i];
                     }
                 }
-                fprintf(file, "time - %.8d - CREATE - ", getpid());
-                stringArgs(argc, argv);
-                fclose(file);
+                char *time = malloc(sizeof(char) * 3);
+                sprintf(time, "-t");
+                aux[i] = time;
 
-                execvp(argv[0],aux);
-                fprintf(file, "time - %.8d - EXIT - 10\n", getpid());
+
+                char *timeToPass = malloc(sizeof(char) * 100);
+                sprintf(timeToPass, "%ld", timeNow + timePassed);
+                aux[i+1] = timeToPass;
+                if (createLog)
+                {
+                    fprintf(file, "time - %.8d - CREATE - ", getpid());
+                    stringArgs(argc, aux);
+                }
+                
+
+                execvp(argv[0], aux);
                 exit(10);
             }
-            else { //parent
-                wait(&pid);
-                file = fopen(getenv(LOG_FILENAME), "a");
+            else
+            { //parent
+                nChilds++;
+                
             }
         }
-        else if(S_ISREG(stat_entry.st_mode)) {
-            if(max_depth >= 0) {
-                if(a) {
-                    if(b) {
-                        printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+        else if (S_ISREG(stat_entry.st_mode))
+        {
+
+            myInfo->size_total += stat_entry.st_size;
+            myInfo->blocks += roundUp(stat_entry.st_size);
+            if (max_depth >= 0)
+            {
+                if (a)
+                {
+                    if (b)
+                    {
+                        printf("%d\t%s\n",(int)stat_entry.st_size, name);
                     }
-                    else {
-                        printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+                    else
+                    {
+                        printf("%d\t%s\n" ,roundUp(stat_entry.st_size),name);
                     }
                 }
             }
         }
-        else if(S_ISLNK(stat_entry.st_mode)) {
-            if(max_depth >= 0) {
-                if(a) {
-                    if(b) {
-                        printf("%-25s%12d%3d\n", name, (int)stat_entry.st_size, (int)stat_entry.st_nlink);
+        else if (S_ISLNK(stat_entry.st_mode))
+        {
+            myInfo->size_total += stat_entry.st_size;
+            myInfo->blocks += roundUp(stat_entry.st_size);
+
+            if (max_depth >= 0)
+            {
+                if (a)
+                {
+                    if (b)
+                    {
+                        printf("%d\t%s\n", (int)stat_entry.st_size, name);
                     }
-                    else {
-                        printf("%-25s%12d%3d\n", name, roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
+                    else
+                    {
+                        printf("%d\t%s\n", roundUp(stat_entry.st_size), name);
                     }
                 }
             }
-        } 
+        }
+        
         
     }
 
     //printing directory
-    if(lstat(argv[2],&stat_entry) == -1){  //Getting status
-            perror("lstat error");
+    if (lstat(argv[2], &stat_entry) == -1)
+    { //Getting status
+        perror("lstat error");
+        if (createLog)
             fprintf(file, "time - %.8d - EXIT - 3\n", getpid());
-            exit(3);
+        exit(3);
     }
-    if(max_depth >= -1) {
-        if(b == 1) {
-            printf("%-25s%12d%3d\n", argv[2], (int)stat_entry.st_size, (int)stat_entry.st_nlink);
-            fprintf(file, "time - %.8d - ENTRY - %d %s\n", getpid(), (int)stat_entry.st_size, argv[2]);
-        }
-        else {
-            printf("%-25s%12d%3d\n", argv[2], roundUp(stat_entry.st_size), (int)stat_entry.st_nlink);
-            fprintf(file, "time - %.8d - ENTRY - %d %s\n", getpid(), roundUp(stat_entry.st_size), argv[2]);
-        }
-    }
+    while(nChilds>0)
+     {
+        wait(&pid);
+        info *childInfo = malloc(sizeof(info));
+        read(fd[READ],childInfo,sizeof(info));
 
-    fprintf(file, "time - %.8d - EXIT - 0\n", getpid());
+
+        myInfo->time += childInfo->time;
+        myInfo->size_total += childInfo->size_total;
+        myInfo->blocks += childInfo->blocks;
+
+        nChilds--;
+     }
+    myInfo->size_total += stat_entry.st_size;
+    myInfo->blocks += roundUp(stat_entry.st_size);
+
+    if (max_depth >= -1)
+    {
+        if (b == 1)
+        {
+            printf("%ld\t%s\n", myInfo->size_total, argv[2]);
+            if (createLog)
+                fprintf(file, "time - %.8d - ENTRY - %ld %s\n", getpid(),myInfo->size_total, argv[2]);
+        }
+        else
+        {
+            printf("%d\t%s\n", myInfo->blocks, argv[2]);
+            if (createLog)
+                fprintf(file, "time - %.8d - ENTRY - %d %s\n", getpid(), myInfo->blocks, argv[2]);
+        }
+    }
+    if (createLog){
+        fprintf(file, "time - %.8d - EXIT - 0\n", getpid());
+        fclose(file);
+    }
+    
+    myInfo->time += timeNow+timePassed;
+    close(fd[READ]);
+   
+     
+    
+    if(timePassed){
+        write(2, myInfo, sizeof(info));
+        close(fd[WRITE]);
+    }
     return 0;
 }

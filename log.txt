@@ -1,0 +1,13 @@
+time - 00031515 - ENTRY - 52 ./TestDir
+time - 00031515 - EXIT - 0
+
+time - 00031520 - ENTRY - 12 ./TestDir/1/1-2
+time - 00031520 - EXIT - 0
+time - 00031521 - ENTRY - 4 ./TestDir/2/2-1
+time - 00031521 - EXIT - 0
+time - 00031517 - ENTRY - 12 ./TestDir/2
+time - 00031517 - EXIT - 0
+time - 00031519 - ENTRY - 16 ./TestDir/1/1-1
+time - 00031519 - EXIT - 0
+time - 00031518 - ENTRY - 32 ./TestDir/1
+time - 00031518 - EXIT - 0
