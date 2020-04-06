@@ -48,19 +48,21 @@ void stringArgs(int argc, char *argv[])
 
 int roundUp(int size)
 {
-    if (size == 0)
-        return 0;
-    if (size < block_size)
-        return ceil(4096/block_size);
-    int aux = 0;
-    if (size % block_size != 0)
-    {
-        aux = 1;
+    double aux = 0;
+    double add = 4096.0/(double)block_size;
+    while(size > 4096){
+        aux += ceil(add);
+        size-=4096;
     }
-    aux = size / block_size + aux;
-    while (aux % 4 != 0)
-        aux++;
-    return aux;
+    
+    if(size == 0){
+        return aux;
+    }
+    else{
+        return aux + ceil(add);
+    }
+
+
 }
 
 void setFlags(int argc, char *argv[])
@@ -381,7 +383,7 @@ int main(int argc, char *argv[])
 
     close(fd[READ]);
 
-
+    //MYSELF
     myInfo->size_total += stat_entry.st_size;
     myInfo->blocks += roundUp(stat_entry.st_size);
 
