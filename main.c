@@ -9,7 +9,6 @@
 #include <time.h>
 #include <inttypes.h>
 #include <string.h>
-#include <math.h>
 #include <signal.h>
 
 #define READ 0
@@ -17,7 +16,6 @@
 
 #define LOG_FILENAME "LOG_FILENAME"
 #define TIMENOW "TIMENOW"
-
 
 int createLog = 0;
 int b = 0;
@@ -32,10 +30,10 @@ int timePassed = 0;
 struct timespec tempo;
 int pathPos;
 
+//pid_t groupId = 0;
+
 DIR *dir;
 FILE *file;
-
-pid_t groupId;
 
 typedef struct
 {
@@ -52,23 +50,26 @@ void stringArgs(int argc, char *argv[])
 
 int roundUp(int size)
 {
-    int aux = 0;
-    double add = ceil(4096.0/block_size);
-    while(size > 4096){
-        aux += ceil(add);
-        size-=4096;
-    }
+    // double aux = 0;
+    // double add = 4096.0/(double)block_size;
+    // while(size > 4096){
+    //     aux += ceil(add);
+    //     size-=4096;
+    // }
     
-    if(size == 0){
-        return aux;
-    }
-    else{
-        return aux + ceil(add);
-    }
+    // if(size == 0){
+    //     return aux;
+    // }
+    // else{
+    //     return aux + ceil(add);
+    // }
+    return size*512;
+
 }
 
 void setFlags(int argc, char *argv[])
 {
+    //printArgs(argc, argv);
     if (strcmp(argv[1], "-l") && strcmp(argv[1], "--count-links"))
     {
         printf("Invalid usage!\n");
@@ -149,33 +150,33 @@ void setFlags(int argc, char *argv[])
     }
 }
 
-void sig_handler(int intType) {
-    char choice;
+// void sig_handler(int intType) {
+//     char choice;
 
-    switch (intType)
-    {
-    case SIGINT:
-        kill(-groupId, SIGSTOP);
-        write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
-        fflush(stdin);
-        scanf("%c", &choice);
-        while(choice != 'y' && choice != 'n' && choice != 'Y' && choice != 'N') {
-            fflush(stdin);
-            write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
-            scanf("%c", &choice);
-        }
-        if(choice == 'y' || choice == 'Y') {
-            kill(-groupId, SIGTERM);
-            exit(50);
-        }
-        else {
-            kill(-groupId, SIGCONT);
-        }
-        break;
-    default:
-        break;
-    }
-}
+//     switch (intType)
+//     {
+//     case SIGINT:
+//         kill(-groupId, SIGSTOP);
+//         write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
+//         fflush(stdin);
+//         scanf("%c", &choice);
+//         while(choice != 'y' && choice != 'n' && choice != 'Y' && choice != 'N') {
+//             fflush(stdin);
+//             write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
+//             scanf("%c", &choice);
+//         }
+//         if(choice == 'y' || choice == 'Y') {
+//             kill(-groupId, SIGTERM);
+//             exit(50);
+//         }
+//         else {
+//             kill(-groupId, SIGCONT);
+//         }
+//         break;
+//     default:
+//         break;
+//     }
+// }
 
 int main(int argc, char *argv[])
 {
@@ -191,8 +192,7 @@ int main(int argc, char *argv[])
     myInfo->blocks = 0;
     struct timespec auxTime;
 
-    groupId = getpgid(getpid());
-    
+    //groupId = getpgid(getpid());
 
     if (argc < 3)
     {
@@ -242,16 +242,14 @@ int main(int argc, char *argv[])
     if (getenv(TIMENOW) != NULL)
     {
         timePassed = 1;
-
-       
     }
     else
     {
-        if (signal(SIGINT, sig_handler) < 0)
-        {
-            fprintf(stderr, "Unable to install SIGINT handler\n");
-            exit(31);
-        }
+        // if (signal(SIGINT, sig_handler) < 0)
+        // {
+        //     fprintf(stderr, "Unable to install SIGINT handler\n");
+        //     exit(31);
+        // }
 
         clock_gettime(CLOCK_REALTIME, &tempo);
         char *timeInString = malloc(sizeof(char) * 5);
@@ -262,9 +260,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &auxTime);
 
     pipe(fd);
-    
-    
-    
+
     while ((d_entry = readdir(dir)) != NULL)
     {
 
@@ -305,7 +301,7 @@ int main(int argc, char *argv[])
 
             if ((pid = fork()) == 0)
             { //Child
-                
+
                 dup2(fd[WRITE], 2);
 
                 char *aux[1000];
@@ -341,39 +337,40 @@ int main(int argc, char *argv[])
                     fclose(file);
                 }
 
-                if(nChilds == 0 && timePassed == 0) {
-                    if(setpgid(0, getpid()) != 0) {
-                        perror("Error on setpgid");
-                        exit(40);
-                    }
-                }
-                else if(timePassed == 0) {
-                    if(setpgid(0, groupId) != 0) {
-                        perror("Error on setpgid");
-                        exit(40);
-                    }
-                }
-                else {
-                    if(setpgid(0, getpgid(getpid())) != 0) {
-                        perror("Error on setpgid");
-                        exit(40);
-                    }
-                }
+                // if(nChilds == 0 && timePassed == 0) {
+                //     if(setpgid(0, getpid()) != 0) {
+                //         perror("Error on setpgid");
+                //         exit(40);
+                //     }
+                // }
+                // else if(timePassed == 0) {
+                //     if(setpgid(0, groupId) != 0) {
+                //         perror("Error on setpgid");
+                //         exit(40);
+                //     }
+                // }
+                // else {
+                //     if(setpgid(0, getpgid(getpid())) != 0) {
+                //         perror("Error on setpgid");
+                //         exit(40);
+                //     }
+                // }
 
                 execvp(argv[0], aux);
                 exit(10);
             }
             else
             { //parent
-                if(nChilds == 0 && timePassed != 1)
-                    groupId = pid;
+                // if(nChilds == 0 && timePassed != 1)
+                //     groupId = pid;
                 nChilds++;
             }
         }
         else if (S_ISREG(stat_entry.st_mode))
         {
+
             myInfo->size_total += stat_entry.st_size;
-            myInfo->blocks += roundUp(stat_entry.st_size);
+            myInfo->blocks += roundUp(stat_entry.st_blocks);
             if (max_depth >= 0)
             {
                 if (a)
@@ -384,7 +381,7 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
-                        printf("%d\t%s\n", roundUp(stat_entry.st_size), name);
+                        printf("%d\t%s\n", (roundUp(stat_entry.st_blocks) + block_size - 1)/block_size, name);
                     }
                 }
             }
@@ -392,7 +389,7 @@ int main(int argc, char *argv[])
         else if (S_ISLNK(stat_entry.st_mode))
         {
             myInfo->size_total += stat_entry.st_size;
-            myInfo->blocks += roundUp(stat_entry.st_size);
+            myInfo->blocks += roundUp(stat_entry.st_blocks);
 
             if (max_depth >= 0)
             {
@@ -404,7 +401,7 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
-                        printf("%d\t%s\n", roundUp(stat_entry.st_size), name);
+                        printf("%d\t%s\n", (roundUp(stat_entry.st_blocks) + block_size - 1)/block_size, name);
                     }
                 }
             }
@@ -435,7 +432,7 @@ int main(int argc, char *argv[])
             clock_gettime(CLOCK_REALTIME, &tempo);
             float timeNow;
             timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - RECV_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), childInfo->blocks, childInfo->size_total);
+            fprintf(file, "%f - %.8d - RECV_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (childInfo->blocks + block_size - 1)/block_size, childInfo->size_total);
         }
 
         myInfo->size_total += childInfo->size_total * S;
@@ -448,7 +445,7 @@ int main(int argc, char *argv[])
 
     //MYSELF
     myInfo->size_total += stat_entry.st_size;
-    myInfo->blocks += roundUp(stat_entry.st_size);
+    myInfo->blocks += roundUp(stat_entry.st_blocks);
 
     if (b == 1)
     {
@@ -465,13 +462,13 @@ int main(int argc, char *argv[])
     else
     {
         if (max_depth >= -1)
-            printf("%d\t%s\n", myInfo->blocks, argv[pathPos]);
+            printf("%d\t%s\n", (myInfo->blocks + block_size - 1)/block_size, argv[pathPos]);
         if (createLog)
         {
             clock_gettime(CLOCK_REALTIME, &tempo);
             float timeNow;
             timeNow = auxTime.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - ENTRY - %d %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), myInfo->blocks, argv[pathPos]);
+            fprintf(file, "%f - %.8d - ENTRY - %d %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1)/block_size, argv[pathPos]);
         }
     }
 
@@ -483,7 +480,7 @@ int main(int argc, char *argv[])
             clock_gettime(CLOCK_REALTIME, &tempo);
             float timeNow;
             timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - SEND_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), myInfo->blocks, myInfo->size_total);
+            fprintf(file, "%f - %.8d - SEND_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1)/block_size, myInfo->size_total);
         }
         close(fd[WRITE]);
     }
