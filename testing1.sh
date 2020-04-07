@@ -17,9 +17,9 @@ command_args=(
 )
 
 directories=(
-    ${HOME}/Desktop/SOPE/FEUP-SOPE-Proj
-    ${HOME}/Desktop/SOPE
-	${HOME}/Desktop/SOPE/FEUP-SOPE-Proj/TestDir
+    ${HOME}/Documents/SOPE/FEUP-SOPE-Proj
+    ${HOME}/Documents/SOPE
+	${HOME}/Documents/SOPE/FEUP-SOPE-Proj/TestDir
 )
 
 for dir in ${directories[*]}
@@ -33,6 +33,6 @@ do
         diff -q /tmp/testeT_simpledu.txt /tmp/testeT_du.txt > /dev/null 2>&1 && echo OK || echo FAILED
         
         # Uncomment line below to print what's wrong (in case of test failed)
-        diff -y /tmp/testeT_simpledu.txt /tmp/testeT_du.txt
+        # diff -y /tmp/testeT_simpledu.txt /tmp/testeT_du.txt
     done
 done
