@@ -42,6 +42,8 @@ typedef struct
     int blocks;
 } info;
 
+enum logPrints {ENTRY, CREATE, SEND_PIPE, RECV_PIPE, GRP_CTRL, GRP_OK, EXIT};
+
 void stringArgs(int argc, char *argv[])
 {
     for (int i = 0; i < argc; ++i)
@@ -56,7 +58,6 @@ int roundUp(int size)
 
 void setFlags(int argc, char *argv[])
 {
-    //printArgs(argc, argv);
     if (strcmp(argv[1], "-l") && strcmp(argv[1], "--count-links"))
     {
         printf("Invalid usage!\n");
@@ -77,8 +78,6 @@ void setFlags(int argc, char *argv[])
             if (i + 1 >= argc)
             {
                 printf("No block size!\n");
-                if (createLog)
-                    fprintf(file, "tempo - %.8d - EXIT - 4\n", getpid());
                 exit(4);
             }
             ++i;
@@ -87,8 +86,6 @@ void setFlags(int argc, char *argv[])
                 if (argv[i][j] > '9' || argv[i][j] < '0')
                 {
                     printf("Invalid block size!\n");
-                    if (createLog)
-                        fprintf(file, "tempo - %.8d - EXIT - 5\n", getpid());
                     exit(5);
                 }
             }
@@ -104,8 +101,6 @@ void setFlags(int argc, char *argv[])
             if (strlen(argv[i]) == 12)
             {
                 printf("Invalid depth!\n");
-                if (createLog)
-                    fprintf(file, "tempo - %.8d - EXIT - 9\n", getpid());
                 exit(9);
             }
             char depth[10];
@@ -127,9 +122,6 @@ void setFlags(int argc, char *argv[])
                 if (createLog)
                 {
                     clock_gettime(CLOCK_REALTIME, &tempo);
-                    float timeNow;
-                    timeNow = tempo.tv_nsec / 1000000.0;
-                    fprintf(file, "%f - %.8d - EXIT - 2\n", timeNow - atof(getenv(TIMENOW)), getpid());
                 }
                 exit(2);
             }
@@ -169,6 +161,43 @@ void sig_handler(int intType)
     }
 }
 
+void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *myInfo, char* finished) {
+
+    clock_gettime(CLOCK_REALTIME, &tempo);
+    float timeNow = tempo.tv_nsec / 1000000.0;
+
+    switch (type)
+    {
+    case CREATE:
+        fprintf(file, "%f - %.8d - CREATE -  ", timeNow - atof(getenv(TIMENOW)), getpid());
+        stringArgs(argc, argv);
+        break;
+    case ENTRY:
+        if(b)
+            fprintf(file, "%f - %.8d - ENTRY - %ld %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), myInfo->size_total, argv[pathPos]);
+        else
+            fprintf(file, "%f - %.8d - ENTRY - %d %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, argv[pathPos]);
+        break;
+    case SEND_PIPE:
+        fprintf(file, "%f - %.8d - SEND_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, myInfo->size_total);
+        break;
+    case RECV_PIPE:
+        fprintf(file, "%f - %.8d - RECV_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, myInfo->size_total);
+        break;
+    case GRP_CTRL:
+        fprintf(file, "%f - %.8d - SEND_PIPE - %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), finished);
+        break;
+    case GRP_OK:
+        fprintf(file, "%f - %.8d - RECV_PIPE - %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), finished);
+        break;
+    case EXIT:
+        fprintf(file, "%f - %.8d - EXIT - %d\n", timeNow - atof(getenv(TIMENOW)), getpid(), exitCode);
+        break;
+    default:
+        break;
+    }
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -187,13 +216,6 @@ int main(int argc, char *argv[])
     if (argc < 3)
     {
         printf("Too few arguments!\n");
-        if (createLog)
-        {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - EXIT - 1\n", timeNow - atof(getenv(TIMENOW)), getpid());
-        }
         exit(1);
     }
 
@@ -203,14 +225,7 @@ int main(int argc, char *argv[])
         if (b && B)
         {
             printf("Incompatible flags!\n");
-            if (createLog)
-            {
-                clock_gettime(CLOCK_REALTIME, &tempo);
-                float timeNow;
-                timeNow = tempo.tv_nsec / 1000000.0;
-                fprintf(file, "%f - %.8d - EXIT - 7\n", timeNow - atof(getenv(TIMENOW)), getpid());
-            }
-            exit(7);
+            exit(1);
         }
     }
 
@@ -239,7 +254,7 @@ int main(int argc, char *argv[])
     {
         if (signal(SIGINT, sig_handler) < 0)
         {
-            fprintf(stderr, "Unable to install SIGINT handler\n");
+            //fprintf(stderr, "Unable to install SIGINT handler\n");
             exit(31);
         }
 
@@ -263,13 +278,9 @@ int main(int argc, char *argv[])
             perror("lstat error");
             if (createLog)
             {
-                clock_gettime(CLOCK_REALTIME, &tempo);
-                float timeNow;
-                timeNow = tempo.tv_nsec / 1000000.0;
-
-                fprintf(file, "%f - %.8d - EXIT - 3\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                printLog(1, 0, NULL, EXIT, NULL, NULL);
             }
-            exit(3);
+            exit(1);
         }
 
         if (S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, ".") && strcmp(d_entry->d_name, ".."))
@@ -282,7 +293,7 @@ int main(int argc, char *argv[])
             if ((pid = fork()) == 0)
             { //Child
 
-                dup2(fd[WRITE], 10);
+                dup2(fd[WRITE], 2);
 
                 char *aux[1000];
                 int i;
@@ -309,12 +320,7 @@ int main(int argc, char *argv[])
 
                 if (createLog)
                 {
-                    clock_gettime(CLOCK_REALTIME, &tempo);
-                    float timeNow;
-                    timeNow = tempo.tv_nsec / 1000000.0;
-                    fprintf(file, "%f - %.8d - CREATE -  ", timeNow - atof(getenv(TIMENOW)), getpid());
-                    stringArgs(argc, aux);
-                    fclose(file);
+                    printLog(0, argc, aux, CREATE, NULL, NULL);
                 }
 
                 if (nChilds == 0 && timePassed == 0)
@@ -324,15 +330,17 @@ int main(int argc, char *argv[])
                         perror("Error on setpgid 1");
                         if (createLog)
                         {
-                            clock_gettime(CLOCK_REALTIME, &tempo);
-                            float timeNow;
-                            timeNow = tempo.tv_nsec / 1000000.0;
-                            fprintf(file, "%f - %.8d - EXIT - 42\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                            printLog(1, 0, NULL, EXIT, NULL, NULL);
                         }
-                        exit(40);
+                        exit(1);
                     }
                     close(firstChildPipe[READ]);
                     write(firstChildPipe[WRITE], "finished", 9);
+                    close(firstChildPipe[WRITE]);
+
+                    if(createLog)
+                        printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
+                    //fclose(file);
                 }
                 else
                 {
@@ -343,17 +351,17 @@ int main(int argc, char *argv[])
                         perror("Error on setpgid 2");
                         if (createLog)
                         {
-                            clock_gettime(CLOCK_REALTIME, &tempo);
-                            float timeNow;
-                            timeNow = tempo.tv_nsec / 1000000.0;
-                            fprintf(file, "%f - %.8d - EXIT - 42\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                            printLog(1, 0, NULL, EXIT, NULL, NULL);
                         }
-                        exit(40);
+                        exit(1);
                     }
                 }
 
+                if(createLog)
+                   fclose(file);
+
                 execvp(argv[0], aux);
-                exit(10);
+                exit(1);
             }
             else
             { //parent
@@ -366,6 +374,10 @@ int main(int argc, char *argv[])
                     {
                         read(firstChildPipe[READ], &recive, 9);
                     }
+                    close(firstChildPipe[READ]);
+
+                    if(createLog)
+                        printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
                 }
                 nChilds++;
             }
@@ -400,12 +412,9 @@ int main(int argc, char *argv[])
                     perror("lstat error");
                     if (createLog)
                     {
-                        clock_gettime(CLOCK_REALTIME, &tempo);
-                        float timeNow;
-                        timeNow = tempo.tv_nsec / 1000000.0;
-                        fprintf(file, "%f - %.8d - EXIT - 3\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                        printLog(1, 0, NULL, EXIT, NULL, NULL);
                     }
-                    exit(3);
+                    exit(1);
                 }
 
                 if (S_ISDIR(stat_entry.st_mode) && strcmp(d_entry->d_name, argv[pathPos]))
@@ -418,7 +427,7 @@ int main(int argc, char *argv[])
                     if ((pid = fork()) == 0)
                     { //Child
 
-                        dup2(fd[WRITE], 10);
+                        dup2(fd[WRITE], 2);
 
                         char *aux[1000];
                         int i;
@@ -445,12 +454,7 @@ int main(int argc, char *argv[])
 
                         if (createLog)
                         {
-                            clock_gettime(CLOCK_REALTIME, &tempo);
-                            float timeNow;
-                            timeNow = tempo.tv_nsec / 1000000.0;
-                            fprintf(file, "%f - %.8d - CREATE -  ", timeNow - atof(getenv(TIMENOW)), getpid());
-                            stringArgs(argc, aux);
-                            fclose(file);
+                            printLog(0, argc, aux, CREATE, NULL, NULL);
                         }
 
                         if (nChilds == 0 && timePassed == 0)
@@ -460,35 +464,35 @@ int main(int argc, char *argv[])
                                 perror("Error on setpgid 3");
                                 if (createLog)
                                 {
-                                    clock_gettime(CLOCK_REALTIME, &tempo);
-                                    float timeNow;
-                                    timeNow = tempo.tv_nsec / 1000000.0;
-                                    fprintf(file, "%f - %.8d - EXIT - 40\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                                    printLog(1, 0, NULL, EXIT, NULL, NULL);
                                 }
-                                exit(40);
+                                exit(1);
                             }
                             close(firstChildPipe[READ]);
+                            if(createLog)
+                                printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
                             write(firstChildPipe[WRITE], "finished", 9);
+                            close(firstChildPipe[WRITE]);
                         }
                         else
                         {
                             if ((err = setpgid(0, groupId)) != 0)
                             {
-                                printf("\n\n%d\n\n", errno);
                                 perror("Error on setpgid 4");
                                 if (createLog)
                                 {
-                                    clock_gettime(CLOCK_REALTIME, &tempo);
-                                    float timeNow;
-                                    timeNow = tempo.tv_nsec / 1000000.0;
-                                    fprintf(file, "%f - %.8d - EXIT - 42\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                                    printLog(1, 0, NULL, EXIT, NULL, NULL);
                                 }
-                                exit(42);
+                                exit(1);
                             }
                         }
 
+                        if(createLog)
+                            fclose(file);
+
                         execvp(argv[0], aux);
-                        exit(10);
+
+                        exit(1);
                     }
                     else
                     { //parent
@@ -501,6 +505,8 @@ int main(int argc, char *argv[])
                             {
                                 read(firstChildPipe[READ], &receive, 9);
                             }
+                            if(createLog)
+                                printLog(0, 0, NULL, GRP_OK, NULL, "child group OK");
                         }
                         nChilds++;
                     }
@@ -554,12 +560,9 @@ int main(int argc, char *argv[])
         perror("lstat error");
         if (createLog)
         {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - EXIT - 3\n", timeNow - atof(getenv(TIMENOW)), getpid());
+            printLog(1, 0, NULL, EXIT, NULL, NULL);
         }
-        exit(3);
+        exit(1);
     }
 
     while (nChilds > 0)
@@ -569,10 +572,7 @@ int main(int argc, char *argv[])
         read(fd[READ], childInfo, sizeof(info));
         if (createLog)
         {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - RECV_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (childInfo->blocks + block_size - 1) / block_size, childInfo->size_total);
+            printLog(0, 0, NULL, RECV_PIPE, childInfo, NULL);
         }
 
         myInfo->size_total += childInfo->size_total * S;
@@ -591,67 +591,42 @@ int main(int argc, char *argv[])
             perror("lstat error");
             if (createLog)
             {
-                clock_gettime(CLOCK_REALTIME, &tempo);
-                float timeNow;
-                timeNow = tempo.tv_nsec / 1000000.0;
-                fprintf(file, "%f - %.8d - EXIT - 3\n", timeNow - atof(getenv(TIMENOW)), getpid());
+                printLog(1, 0, NULL, EXIT, NULL, NULL);
             }
-            exit(3);
+            exit(1);
         }
     }
 
     myInfo->size_total += stat_entry.st_size;
     myInfo->blocks += roundUp(stat_entry.st_blocks);
 
-    if (b == 1)
-    {
-        if (max_depth >= -1)
+    if(max_depth >= -1) {
+        if(b)
             printf("%ld\t%s\n", myInfo->size_total, argv[pathPos]);
-        if (createLog)
-        {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = auxTime.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - ENTRY - %ld %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), myInfo->size_total, argv[pathPos]);
-        }
-    }
-    else
-    {
-        if (max_depth >= -1)
+        else
             printf("%d\t%s\n", (myInfo->blocks + block_size - 1) / block_size, argv[pathPos]);
-        if (createLog)
-        {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = auxTime.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - ENTRY - %d %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, argv[pathPos]);
-        }
     }
+
+    if(createLog)
+        printLog(0, argc, argv, ENTRY, myInfo, NULL);
 
     if (timePassed)
     {
-        write(10, myInfo, sizeof(info));
+        write(2, myInfo, sizeof(info));
         if (createLog)
         {
-            clock_gettime(CLOCK_REALTIME, &tempo);
-            float timeNow;
-            timeNow = tempo.tv_nsec / 1000000.0;
-            fprintf(file, "%f - %.8d - SEND_PIPE - %d %ld\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, myInfo->size_total);
+            printLog(0, 0, NULL, SEND_PIPE, myInfo, NULL);
         }
         close(fd[WRITE]);
     }
 
     if (createLog)
     {
-        clock_gettime(CLOCK_REALTIME, &tempo);
-        float timeNow;
-        timeNow = tempo.tv_nsec / 1000000.0;
-        fprintf(file, "%f - %.8d - EXIT - 0\n", timeNow - atof(getenv(TIMENOW)), getpid());
+        printLog(0, 0, NULL, EXIT, NULL, NULL);
         fclose(file);
     }
 
     if(getpid()==getpgrp())
         usleep(10000);
-
     return 0;
 }

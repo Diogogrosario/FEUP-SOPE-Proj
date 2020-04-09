@@ -17,9 +17,9 @@ command_args=(
 )
 
 directories=(
-    ${HOME}/Desktop/SOPE/FEUP-SOPE-Proj
-    ${HOME}/Desktop/SOPE
-	${HOME}/Desktop/SOPE/FEUP-SOPE-Proj/TestDir
+    ${HOME}/Documents/SOPE/FEUP-SOPE-Proj
+    ${HOME}/Documents/SOPE
+	${HOME}/Documents/SOPE/FEUP-SOPE-Proj/TestDir
 )
 
 for dir in ${directories[*]}

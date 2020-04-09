@@ -1,1 +1,4 @@
 simpledu
+*.sh
+TestDir
+log.txt
