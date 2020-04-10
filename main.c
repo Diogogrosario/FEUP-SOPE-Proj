@@ -19,7 +19,7 @@
 
 int createLog = 0;
 int b = 0;
-int l=0;
+int l = 0;
 int a = 0;
 int B = 0;
 int S = 1;
@@ -61,133 +61,6 @@ void stringArgs(int argc, char *argv[])
     fprintf(file, "\n");
 }
 
-int roundUp(int size)
-{
-    return size * 512;
-}
-
-void setFlags(int argc, char *argv[])
-{
-    
-    for (int i = 1; i < argc; ++i)
-    {
-        if (!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes"))
-        {
-            b = 1;
-        }
-        else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--count-links"))
-        {
-            l=1;
-        }
-        else if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all"))
-        {
-            a = 1;
-        }
-        else if (!strcmp(argv[i], "-B"))
-        {
-            if (!B)
-            {
-                if (i + 1 >= argc)
-                {
-                    printf("No block size!\n");
-                    exit(1);
-                }
-                ++i;
-                for (int j = 0; j < strlen(argv[i]); ++j)
-                {
-                    if (argv[i][j] > '9' || argv[i][j] < '0')
-                    {
-                        printf("Invalid block size!\n");
-                        exit(1);
-                    }
-                }
-                B = 1;
-                block_size = atoi(argv[i]);
-            }
-        }
-        else if (!strncmp("--block-size=", argv[i], 13))
-        {
-            if (!B)
-            {
-                if (strlen(argv[i]) == 14)
-                {
-                    printf("Invalid block size!\n");
-                    exit(1);
-                }
-                char newBlockSize[10];
-                for (int j = 13; j < strlen(argv[i]); ++j)
-                    newBlockSize[j - 13] = argv[i][j];
-                block_size = atoi(newBlockSize);
-                B = 1;
-            }
-        }
-        else if (!strcmp("-S", argv[i]))
-        {
-            S = 0;
-        }
-        else if (!strncmp("--max-depth=", argv[i], 12))
-        {
-            if (strlen(argv[i]) == 12)
-            {
-                printf("Invalid depth!\n");
-                exit(1);
-            }
-            char depth[10];
-            for (int j = 12; j < strlen(argv[i]); ++j)
-                depth[j - 12] = argv[i][j];
-            max_depth = atoi(depth) - 1;
-            depth_index = i;
-        }
-        else if (!strcmp("-L", argv[i]))
-        {
-            L = 1;
-        }
-        else
-        {
-            if ((dir = opendir(argv[i])) == NULL)
-            {
-                exit(1);
-            }
-            pathPos = i;
-        }
-    }
-    if(pathPos == -1) {
-        exit(1);
-    }
-}
-
-void sig_handler(int intType)
-{
-    char choice;
-
-    switch (intType)
-    {
-    case SIGINT:
-        kill(-groupId, SIGSTOP);
-        write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
-        fflush(stdin);
-        scanf("%c", &choice);
-        while (choice != 'y' && choice != 'n' && choice != 'Y' && choice != 'N')
-        {
-            fflush(stdin);
-            write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
-            scanf("%c", &choice);
-        }
-        if (choice == 'y' || choice == 'Y')
-        {
-            kill(-groupId, SIGTERM);
-            exit(1);
-        }
-        else
-        {
-            kill(-groupId, SIGCONT);
-        }
-        break;
-    default:
-        break;
-    }
-}
-
 void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *myInfo, char *finished)
 {
 
@@ -226,6 +99,170 @@ void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *m
     }
 }
 
+int roundUp(int size)
+{
+    return size * 512;
+}
+
+void setFlags(int argc, char *argv[])
+{
+
+    for (int i = 1; i < argc; ++i)
+    {
+        if (!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes"))
+        {
+            b = 1;
+        }
+        else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--count-links"))
+        {
+            l = 1;
+        }
+        else if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all"))
+        {
+            a = 1;
+        }
+        else if (!strcmp(argv[i], "-B"))
+        {
+            b = 0;
+            if (i + 1 >= argc)
+            {
+                printf("No block size!\n");
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+            ++i;
+            for (int j = 0; j < strlen(argv[i]); ++j)
+            {
+                if (argv[i][j] > '9' || argv[i][j] < '0')
+                {
+                    printf("Invalid block size!\n");
+                    if (createLog)
+                        printLog(1, 0, NULL, EXIT, NULL, NULL);
+                    exit(1);
+                }
+            }
+            B = 1;
+            block_size = atoi(argv[i]);
+            if (block_size <= 0 || block_size > 4096)
+            {
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+        }
+        else if (!strncmp("--block-size=", argv[i], 13))
+        {
+            b = 0;
+            if (strlen(argv[i]) == 13)
+            {
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                printf("Invalid block size!\n");
+                exit(1);
+            }
+            char newBlockSize[10];
+            for (int j = 13; j < strlen(argv[i]); ++j)
+            {
+                if (argv[i][j] > '9' || argv[i][j] < '0')
+                {
+                    printf("Invalid block size!\n");
+                    if (createLog)
+                        printLog(1, 0, NULL, EXIT, NULL, NULL);
+                    exit(1);
+                }
+                newBlockSize[j - 13] = argv[i][j];
+            }
+            block_size = atoi(newBlockSize);
+            B = 1;
+            if (block_size <= 0 || block_size > 4096)
+            {
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+        }
+        else if (!strcmp("-S", argv[i]))
+        {
+            S = 0;
+        }
+        else if (!strncmp("--max-depth=", argv[i], 12))
+        {
+            if (strlen(argv[i]) == 12)
+            {
+                printf("Invalid depth!\n");
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+            char depth[10];
+            for (int j = 12; j < strlen(argv[i]); ++j)
+                depth[j - 12] = argv[i][j];
+
+            max_depth = atoi(depth) - 1;
+            depth_index = i;
+            if (max_depth < -1 && !timePassed)
+            {
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+        }
+        else if (!strcmp("-L", argv[i]))
+        {
+            L = 1;
+        }
+        else
+        {
+            if ((dir = opendir(argv[i])) == NULL)
+            {
+                if (createLog)
+                    printLog(1, 0, NULL, EXIT, NULL, NULL);
+                exit(1);
+            }
+            pathPos = i;
+        }
+    }
+    if (pathPos == -1)
+    {
+        if (createLog)
+            printLog(1, 0, NULL, EXIT, NULL, NULL);
+        exit(1);
+    }
+}
+
+void sig_handler(int intType)
+{
+    char choice;
+
+    switch (intType)
+    {
+    case SIGINT:
+        kill(-groupId, SIGSTOP);
+        write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
+        fflush(stdin);
+        scanf("%c", &choice);
+        while (choice != 'y' && choice != 'n' && choice != 'Y' && choice != 'N')
+        {
+            fflush(stdin);
+            write(STDOUT_FILENO, "\nDo you really want to quit?(y/n)\n", 35);
+            scanf("%c", &choice);
+        }
+        if (choice == 'y' || choice == 'Y')
+        {
+            kill(-groupId, SIGTERM);
+            exit(1);
+        }
+        else
+        {
+            kill(-groupId, SIGCONT);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -246,16 +283,6 @@ int main(int argc, char *argv[])
     {
         printf("Too few arguments!\n");
         exit(1);
-    }
-
-    else if (argc >= 3)
-    {
-        setFlags(argc, argv);
-        if (b && B)
-        {
-            printf("Incompatible flags!\n");
-            exit(1);
-        }
     }
 
     if (getenv(LOG_FILENAME) != NULL)
@@ -291,6 +318,8 @@ int main(int argc, char *argv[])
         sprintf(timeInString, "%f", tempo.tv_nsec / 1000000.0);
         setenv(TIMENOW, timeInString, 0);
     }
+
+    setFlags(argc, argv);
 
     clock_gettime(CLOCK_REALTIME, &auxTime);
 
