@@ -657,10 +657,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    while (nChilds > 0)
+    while (nChilds > 0) //receives all the children info
     {
 
-        if (nChilds == 1 && !timePassed)
+        if (nChilds == 1 && !timePassed) // if its the main process and there is only one child left a message is sent for the child to finish
         {
             write(killFirstChild[WRITE], "done", 5);
             if (createLog)
@@ -722,7 +722,7 @@ int main(int argc, char *argv[])
         close(fd[WRITE]);
     }
 
-    if (getpid() == getpgrp() && timePassed == 1)
+    if (getpid() == getpgrp() && timePassed == 1) //first child waits for the signal from the parent so that he can close after everyone else because of the process group
     {
         char receive[5] = "";
         while (strcmp(receive, "done"))
