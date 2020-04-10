@@ -436,12 +436,15 @@ int main(int argc, char *argv[])
                     {
                         read(firstChildPipe[READ], &recive, 9);
                     }
-                    close(firstChildPipe[READ]);
-
-                    close(killFirstChild[READ]);
 
                     if (createLog)
-                        printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
+                    {
+                        char *auxs = malloc(sizeof(char) * 3);
+                        sprintf(auxs, "%d", nChilds);
+                        printLog(0, 0, NULL, GRP_OK, NULL, auxs);
+                    }
+                    close(firstChildPipe[READ]);
+                    close(killFirstChild[READ]);
                 }
                 nChilds++;
             }
@@ -486,6 +489,7 @@ int main(int argc, char *argv[])
                     if (!timePassed && nChilds == 0)
                     {
                         pipe(firstChildPipe);
+                        pipe(killFirstChild);
                     }
 
                     if ((pid = fork()) == 0)
@@ -535,10 +539,11 @@ int main(int argc, char *argv[])
                         }
 
                         if (nChilds == 0 && timePassed == 0)
-                        {
-                            if (setpgid(0, getpid()) != 0)
+                        { // Primeiro Filho
+                            dup2(killFirstChild[READ], 3);
+                            if (setpgid(0, getpid()) == -1)
                             {
-                                perror("Error on setpgid 3");
+                                perror("Error on setpgid 1");
                                 if (createLog)
                                 {
                                     printLog(1, 0, NULL, EXIT, NULL, NULL);
@@ -546,10 +551,17 @@ int main(int argc, char *argv[])
                                 exit(1);
                             }
                             close(firstChildPipe[READ]);
-                            if (createLog)
-                                printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
                             write(firstChildPipe[WRITE], "finished", 9);
+
                             close(firstChildPipe[WRITE]);
+
+                            close(killFirstChild[WRITE]);
+
+                            if (createLog)
+                            {
+                                printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
+                            }
+                            //fclose(file);
                         }
                         else
                         {
@@ -575,7 +587,6 @@ int main(int argc, char *argv[])
                     { //parent
                         if (nChilds == 0 && timePassed == 0)
                         {
-
                             close(firstChildPipe[WRITE]);
                             groupId = pid;
                             char recive[9];
@@ -588,9 +599,9 @@ int main(int argc, char *argv[])
                             close(killFirstChild[READ]);
 
                             if (createLog)
-                                printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
+                                printLog(0, 0, NULL, GRP_OK, NULL, "finished");
                         }
-                        
+
                         nChilds++;
                     }
                 }
@@ -655,7 +666,7 @@ int main(int argc, char *argv[])
         {
             write(killFirstChild[WRITE], "done", 5);
             if (createLog)
-                printLog(0, 0, NULL, GRP_OK, NULL, "done");
+                printLog(0, 0, NULL, GRP_CTRL, NULL, "done");
             close(killFirstChild[WRITE]);
         }
 
@@ -713,11 +724,6 @@ int main(int argc, char *argv[])
         close(fd[WRITE]);
     }
 
-    if (createLog)
-    {
-        printLog(0, 0, NULL, EXIT, NULL, NULL);
-        fclose(file);
-    }
     if (getpid() == getpgrp() && timePassed == 1)
     {
         char receive[5] = "";
@@ -728,9 +734,15 @@ int main(int argc, char *argv[])
             read(3, &receive, 5);
         }
         if (createLog)
-            printLog(0, 0, NULL, GRP_CTRL, NULL, "done");
+            printLog(0, 0, NULL, GRP_OK, NULL, "done");
         close(killFirstChild[READ]);
         return 0;
+    }
+
+    if (createLog)
+    {
+        printLog(0, 0, NULL, EXIT, NULL, NULL);
+        fclose(file);
     }
 
     return 0;

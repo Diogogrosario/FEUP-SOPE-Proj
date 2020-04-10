@@ -2,3 +2,4 @@ simpledu
 *.sh
 TestDir
 log.txt
+*.o
