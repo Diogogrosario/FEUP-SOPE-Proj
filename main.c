@@ -29,7 +29,7 @@ int depth_index = -1;
 int L = 0;
 int timePassed = 0;
 struct timespec tempo;
-int pathPos;
+int pathPos = -1;
 int err;
 
 pid_t groupId = 0;
@@ -144,14 +144,15 @@ void setFlags(int argc, char *argv[])
         }
         else
         {
-
             if ((dir = opendir(argv[i])) == NULL)
             {
-                perror(argv[i]);
                 exit(1);
             }
             pathPos = i;
         }
+    }
+    if(pathPos == -1) {
+        exit(1);
     }
 }
 
