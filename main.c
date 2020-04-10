@@ -19,6 +19,7 @@
 
 int createLog = 0;
 int b = 0;
+int l=0;
 int a = 0;
 int B = 0;
 int S = 1;
@@ -67,16 +68,16 @@ int roundUp(int size)
 
 void setFlags(int argc, char *argv[])
 {
-    if (strcmp(argv[1], "-l") && strcmp(argv[1], "--count-links"))
-    {
-        printf("Invalid usage!\n");
-        exit(1);
-    }
-    for (int i = 2; i < argc; ++i)
+    
+    for (int i = 1; i < argc; ++i)
     {
         if (!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bytes"))
         {
             b = 1;
+        }
+        else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--count-links"))
+        {
+            l=1;
         }
         else if (!strcmp(argv[i], "-a") || !strcmp(argv[i], "--all"))
         {
