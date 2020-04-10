@@ -439,9 +439,7 @@ int main(int argc, char *argv[])
 
                     if (createLog)
                     {
-                        char *auxs = malloc(sizeof(char) * 3);
-                        sprintf(auxs, "%d", nChilds);
-                        printLog(0, 0, NULL, GRP_OK, NULL, auxs);
+                        printLog(0, 0, NULL, GRP_OK, NULL, "finished");
                     }
                     close(firstChildPipe[READ]);
                     close(killFirstChild[READ]);
