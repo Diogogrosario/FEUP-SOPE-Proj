@@ -70,7 +70,7 @@ void setFlags(int argc, char *argv[])
     if (strcmp(argv[1], "-l") && strcmp(argv[1], "--count-links"))
     {
         printf("Invalid usage!\n");
-        exit(8);
+        exit(1);
     }
     for (int i = 2; i < argc; ++i)
     {
@@ -89,7 +89,7 @@ void setFlags(int argc, char *argv[])
                 if (i + 1 >= argc)
                 {
                     printf("No block size!\n");
-                    exit(4);
+                    exit(1);
                 }
                 ++i;
                 for (int j = 0; j < strlen(argv[i]); ++j)
@@ -97,7 +97,7 @@ void setFlags(int argc, char *argv[])
                     if (argv[i][j] > '9' || argv[i][j] < '0')
                     {
                         printf("Invalid block size!\n");
-                        exit(5);
+                        exit(1);
                     }
                 }
                 B = 1;
@@ -111,7 +111,7 @@ void setFlags(int argc, char *argv[])
                 if (strlen(argv[i]) == 14)
                 {
                     printf("Invalid block size!\n");
-                    exit(9);
+                    exit(1);
                 }
                 char newBlockSize[10];
                 for (int j = 13; j < strlen(argv[i]); ++j)
@@ -129,7 +129,7 @@ void setFlags(int argc, char *argv[])
             if (strlen(argv[i]) == 12)
             {
                 printf("Invalid depth!\n");
-                exit(9);
+                exit(1);
             }
             char depth[10];
             for (int j = 12; j < strlen(argv[i]); ++j)
@@ -147,11 +147,7 @@ void setFlags(int argc, char *argv[])
             if ((dir = opendir(argv[i])) == NULL)
             {
                 perror(argv[i]);
-                if (createLog)
-                {
-                    clock_gettime(CLOCK_REALTIME, &tempo);
-                }
-                exit(2);
+                exit(1);
             }
             pathPos = i;
         }
@@ -178,7 +174,7 @@ void sig_handler(int intType)
         if (choice == 'y' || choice == 'Y')
         {
             kill(-groupId, SIGTERM);
-            exit(50);
+            exit(1);
         }
         else
         {
@@ -285,7 +281,7 @@ int main(int argc, char *argv[])
         if (signal(SIGINT, sig_handler) < 0)
         {
             //fprintf(stderr, "Unable to install SIGINT handler\n");
-            exit(31);
+            exit(1);
         }
 
         clock_gettime(CLOCK_REALTIME, &tempo);
