@@ -42,7 +42,16 @@ typedef struct
     int blocks;
 } info;
 
-enum logPrints {ENTRY, CREATE, SEND_PIPE, RECV_PIPE, GRP_CTRL, GRP_OK, EXIT};
+enum logPrints
+{
+    ENTRY,
+    CREATE,
+    SEND_PIPE,
+    RECV_PIPE,
+    GRP_CTRL,
+    GRP_OK,
+    EXIT
+};
 
 void stringArgs(int argc, char *argv[])
 {
@@ -75,22 +84,41 @@ void setFlags(int argc, char *argv[])
         }
         else if (!strcmp(argv[i], "-B"))
         {
-            if (i + 1 >= argc)
+            if (!B)
             {
-                printf("No block size!\n");
-                exit(4);
+                if (i + 1 >= argc)
+                {
+                    printf("No block size!\n");
+                    exit(4);
+                }
+                ++i;
+                for (int j = 0; j < strlen(argv[i]); ++j)
+                {
+                    if (argv[i][j] > '9' || argv[i][j] < '0')
+                    {
+                        printf("Invalid block size!\n");
+                        exit(5);
+                    }
+                }
+                B = 1;
+                block_size = atoi(argv[i]);
             }
-            ++i;
-            for (int j = 0; j < strlen(argv[i]); ++j)
+        }
+        else if (!strncmp("--block-size=", argv[i], 13))
+        {
+            if (!B)
             {
-                if (argv[i][j] > '9' || argv[i][j] < '0')
+                if (strlen(argv[i]) == 14)
                 {
                     printf("Invalid block size!\n");
-                    exit(5);
+                    exit(9);
                 }
+                char newBlockSize[10];
+                for (int j = 13; j < strlen(argv[i]); ++j)
+                    newBlockSize[j - 13] = argv[i][j];
+                block_size = atoi(newBlockSize);
+                B = 1;
             }
-            B = 1;
-            block_size = atoi(argv[i]);
         }
         else if (!strcmp("-S", argv[i]))
         {
@@ -115,7 +143,7 @@ void setFlags(int argc, char *argv[])
         }
         else
         {
-            pathPos = i;
+
             if ((dir = opendir(argv[i])) == NULL)
             {
                 perror(argv[i]);
@@ -125,6 +153,7 @@ void setFlags(int argc, char *argv[])
                 }
                 exit(2);
             }
+            pathPos = i;
         }
     }
 }
@@ -161,7 +190,8 @@ void sig_handler(int intType)
     }
 }
 
-void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *myInfo, char* finished) {
+void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *myInfo, char *finished)
+{
 
     clock_gettime(CLOCK_REALTIME, &tempo);
     float timeNow = tempo.tv_nsec / 1000000.0;
@@ -173,7 +203,7 @@ void printLog(int exitCode, int argc, char *argv[], enum logPrints type, info *m
         stringArgs(argc, argv);
         break;
     case ENTRY:
-        if(b)
+        if (b)
             fprintf(file, "%f - %.8d - ENTRY - %ld %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), myInfo->size_total, argv[pathPos]);
         else
             fprintf(file, "%f - %.8d - ENTRY - %d %s\n", timeNow - atof(getenv(TIMENOW)), getpid(), (myInfo->blocks + block_size - 1) / block_size, argv[pathPos]);
@@ -248,7 +278,6 @@ int main(int argc, char *argv[])
     {
         timePassed = 1;
         groupId = getpgid(getpid());
-        
     }
     else
     {
@@ -270,8 +299,20 @@ int main(int argc, char *argv[])
 
     while ((d_entry = readdir(dir)) != NULL)
     {
-
-        sprintf(name, "%s/%s", argv[pathPos], d_entry->d_name);
+        for (int j = 0; j < strlen(argv[pathPos]); j++)
+        {
+            if (j == strlen(argv[pathPos]) - 1)
+            {
+                if (argv[pathPos][j] == '/')
+                {
+                    sprintf(name, "%s%s", argv[pathPos], d_entry->d_name);
+                }
+                else
+                {
+                    sprintf(name, "%s/%s", argv[pathPos], d_entry->d_name);
+                }
+            }
+        }
 
         if (lstat(name, &stat_entry) == -1)
         { //Getting status
@@ -309,7 +350,21 @@ int main(int argc, char *argv[])
                     else if (i == pathPos)
                     {
                         char *temp2 = malloc(sizeof(char) * 1000);
-                        sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
+                        for (int j = 0; j < strlen(argv[i]); j++)
+                        {
+                            if (j == strlen(argv[i]) - 1)
+                            {
+                                if (argv[i][j] == '/')
+                                {
+                                    sprintf(temp2, "%s%s", argv[i], d_entry->d_name);
+                                }
+                                else
+                                {
+                                    sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
+                                }
+                            }
+                        }
+
                         aux[i] = temp2;
                     }
                     else
@@ -338,7 +393,7 @@ int main(int argc, char *argv[])
                     write(firstChildPipe[WRITE], "finished", 9);
                     close(firstChildPipe[WRITE]);
 
-                    if(createLog)
+                    if (createLog)
                         printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
                     //fclose(file);
                 }
@@ -357,8 +412,8 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                if(createLog)
-                   fclose(file);
+                if (createLog)
+                    fclose(file);
 
                 execvp(argv[0], aux);
                 exit(1);
@@ -376,7 +431,7 @@ int main(int argc, char *argv[])
                     }
                     close(firstChildPipe[READ]);
 
-                    if(createLog)
+                    if (createLog)
                         printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
                 }
                 nChilds++;
@@ -443,7 +498,20 @@ int main(int argc, char *argv[])
                             else if (i == pathPos)
                             {
                                 char *temp2 = malloc(sizeof(char) * 1000);
-                                sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
+                                for (int j = 0; j < strlen(argv[i]); j++)
+                                {
+                                    if (j == strlen(argv[i]) - 1)
+                                    {
+                                        if (argv[i][j] == '/')
+                                        {
+                                            sprintf(temp2, "%s%s", argv[i], d_entry->d_name);
+                                        }
+                                        else
+                                        {
+                                            sprintf(temp2, "%s/%s", argv[i], d_entry->d_name);
+                                        }
+                                    }
+                                }
                                 aux[i] = temp2;
                             }
                             else
@@ -469,7 +537,7 @@ int main(int argc, char *argv[])
                                 exit(1);
                             }
                             close(firstChildPipe[READ]);
-                            if(createLog)
+                            if (createLog)
                                 printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
                             write(firstChildPipe[WRITE], "finished", 9);
                             close(firstChildPipe[WRITE]);
@@ -487,7 +555,7 @@ int main(int argc, char *argv[])
                             }
                         }
 
-                        if(createLog)
+                        if (createLog)
                             fclose(file);
 
                         execvp(argv[0], aux);
@@ -505,7 +573,7 @@ int main(int argc, char *argv[])
                             {
                                 read(firstChildPipe[READ], &receive, 9);
                             }
-                            if(createLog)
+                            if (createLog)
                                 printLog(0, 0, NULL, GRP_OK, NULL, "child group OK");
                         }
                         nChilds++;
@@ -600,14 +668,15 @@ int main(int argc, char *argv[])
     myInfo->size_total += stat_entry.st_size;
     myInfo->blocks += roundUp(stat_entry.st_blocks);
 
-    if(max_depth >= -1) {
-        if(b)
+    if (max_depth >= -1)
+    {
+        if (b)
             printf("%ld\t%s\n", myInfo->size_total, argv[pathPos]);
         else
             printf("%d\t%s\n", (myInfo->blocks + block_size - 1) / block_size, argv[pathPos]);
     }
 
-    if(createLog)
+    if (createLog)
         printLog(0, argc, argv, ENTRY, myInfo, NULL);
 
     if (timePassed)
@@ -626,7 +695,7 @@ int main(int argc, char *argv[])
         fclose(file);
     }
 
-    if(getpid()==getpgrp())
-        usleep(10000);
+    if (getpid() == getpgrp())
+        usleep(100000);
     return 0;
 }
