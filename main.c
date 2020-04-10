@@ -232,6 +232,7 @@ int main(int argc, char *argv[])
 {
 
     int fd[2];
+    int killFirstChild[2];
     pid_t pid;
     char name[FILENAME_MAX];
     struct dirent *d_entry;
@@ -330,6 +331,7 @@ int main(int argc, char *argv[])
             if (!timePassed && nChilds == 0)
             {
                 pipe(firstChildPipe);
+                pipe(killFirstChild);
             }
             if ((pid = fork()) == 0)
             { //Child
@@ -380,6 +382,7 @@ int main(int argc, char *argv[])
 
                 if (nChilds == 0 && timePassed == 0)
                 { // Primeiro Filho
+                    dup2(killFirstChild[READ], 3);
                     if (setpgid(0, getpid()) == -1)
                     {
                         perror("Error on setpgid 1");
@@ -391,7 +394,10 @@ int main(int argc, char *argv[])
                     }
                     close(firstChildPipe[READ]);
                     write(firstChildPipe[WRITE], "finished", 9);
+
                     close(firstChildPipe[WRITE]);
+
+                    close(killFirstChild[WRITE]);
 
                     if (createLog)
                         printLog(0, 0, NULL, GRP_CTRL, NULL, "finished");
@@ -403,7 +409,6 @@ int main(int argc, char *argv[])
                     if ((setpgid(0, groupId)) == -1)
                     {
                         printf("\n\n%d\n\n", errno);
-                        perror("Error on setpgid 2");
                         if (createLog)
                         {
                             printLog(1, 0, NULL, EXIT, NULL, NULL);
@@ -420,8 +425,10 @@ int main(int argc, char *argv[])
             }
             else
             { //parent
+
                 if (nChilds == 0 && timePassed == 0)
                 {
+
                     close(firstChildPipe[WRITE]);
                     groupId = pid;
                     char recive[9];
@@ -430,6 +437,8 @@ int main(int argc, char *argv[])
                         read(firstChildPipe[READ], &recive, 9);
                     }
                     close(firstChildPipe[READ]);
+
+                    close(killFirstChild[READ]);
 
                     if (createLog)
                         printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
@@ -566,16 +575,22 @@ int main(int argc, char *argv[])
                     { //parent
                         if (nChilds == 0 && timePassed == 0)
                         {
+
                             close(firstChildPipe[WRITE]);
                             groupId = pid;
-                            char receive[9];
-                            while (strcmp(receive, "finished"))
+                            char recive[9];
+                            while (strcmp(recive, "finished"))
                             {
-                                read(firstChildPipe[READ], &receive, 9);
+                                read(firstChildPipe[READ], &recive, 9);
                             }
+                            close(firstChildPipe[READ]);
+
+                            close(killFirstChild[READ]);
+
                             if (createLog)
-                                printLog(0, 0, NULL, GRP_OK, NULL, "child group OK");
+                                printLog(0, 0, NULL, GRP_OK, NULL, "control group OK");
                         }
+                        
                         nChilds++;
                     }
                 }
@@ -635,6 +650,15 @@ int main(int argc, char *argv[])
 
     while (nChilds > 0)
     {
+
+        if (nChilds == 1 && !timePassed)
+        {
+            write(killFirstChild[WRITE], "done", 5);
+            if (createLog)
+                printLog(0, 0, NULL, GRP_OK, NULL, "done");
+            close(killFirstChild[WRITE]);
+        }
+
         wait(&pid);
         info *childInfo = malloc(sizeof(info));
         read(fd[READ], childInfo, sizeof(info));
@@ -694,8 +718,20 @@ int main(int argc, char *argv[])
         printLog(0, 0, NULL, EXIT, NULL, NULL);
         fclose(file);
     }
+    if (getpid() == getpgrp() && timePassed == 1)
+    {
+        char receive[5] = "";
+        while (strcmp(receive, "done"))
+        {
 
-    if (getpid() == getpgrp())
-        usleep(100000);
+            printf("%s", receive);
+            read(3, &receive, 5);
+        }
+        if (createLog)
+            printLog(0, 0, NULL, GRP_CTRL, NULL, "done");
+        close(killFirstChild[READ]);
+        return 0;
+    }
+
     return 0;
 }
